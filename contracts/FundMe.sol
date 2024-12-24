@@ -15,9 +15,9 @@ contract FundMe {
 
     uint256 constant MINIMUM_VALUE = 10 * 10 ** 18; //USD
     
-    AggregatorV3Interface internal dataFeed;
+    AggregatorV3Interface public dataFeed;
 
-    uint256 constant TARGET = 10 * 10 ** 18;
+    uint256 constant TARGET = 20 * 10 ** 18;
 
     address public owner;
 
@@ -28,9 +28,12 @@ contract FundMe {
 
     bool public getFundSuccess = false;
 
-    constructor(uint256 _lockTime) {
+    event FundWithdrawByOwner(uint256);
+    event refundbyfunder(address,uint256);
+
+    constructor(uint256 _lockTime,address dataFeedAddr) {
         // sepolia testnet
-        dataFeed = AggregatorV3Interface(0x694AA1769357215DE4FAC081bf1f309aDC325306);
+        dataFeed = AggregatorV3Interface(dataFeedAddr);
         owner = msg.sender;
         deploymentTimestamp = block.timestamp;
         lockTime = _lockTime;
@@ -74,10 +77,14 @@ contract FundMe {
         
         // call: transfer ETH with data return value of function and bool 
         bool success;
-        (success, ) = payable(msg.sender).call{value: address(this).balance}("");
+        uint256 balance = address(this).balance;
+        (success, ) = payable(msg.sender).call{value: balance}("");
         require(success, "transfer tx failed");
         fundersToAmount[msg.sender] = 0;
         getFundSuccess = true; // flag
+        //emit event
+        emit FundWithdrawByOwner(balance);
+
     }
 
     function refund() external windowClosed {
@@ -87,6 +94,7 @@ contract FundMe {
         (success, ) = payable(msg.sender).call{value: fundersToAmount[msg.sender]}("");
         require(success, "transfer tx failed");
         fundersToAmount[msg.sender] = 0;
+        emit refundbyfunder(msg.sender,fundersToAmount[msg.sender]);
     }
 
     //仅仅erc20可以修改mapping里的地址
